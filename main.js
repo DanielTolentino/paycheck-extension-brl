@@ -1,40 +1,45 @@
 function convertToRawCount(number) {
-  const cleaned = number.replace(/,/g, "");
+  const cleaned = number.replace(/[,./\s]/g, ""); // Remover vírgulas, pontos, barras e espaços
   const base = parseFloat(cleaned);
-  if (number.toLowerCase().match(/k/)) {
+
+  if (number.toLowerCase().match(/\d{1,3}(k|mil)/i)) {
     return Math.round(base * 1000);
   } else if (number.toLowerCase().match(/m/)) {
     return Math.round(base * 1000000);
-  } else if (number.toLowerCase().match(/b/)) {
+  } else if (number.toLowerCase().match(/\d{1,3}b/i)) {
     return Math.round(base * 1000000000);
   } else {
     return base;
   }
 }
 
-function convertToDollars(number) {
+function convertToBRL(number) {
   const rawCount = convertToRawCount(number);
 
   const processed = rawCount * 0.000026;
-  if (processed < 0.1) return processed.toFixed(5);
-  return processed.toFixed(2);
-}
+  const exchangeRate = 5; // Replace with the actual exchange rate from USD to BRL
 
-// USD conversion rate to eur
-const USD_TO_EUR_CONVERSION_RATE = 5;
+  const brlAmount = processed * exchangeRate;
 
-function convertToEuros(dollarAmount) {
-  return dollarAmount * USD_TO_EUR_CONVERSION_RATE;
+  // Format the Brazilian Real amount with commas for thousands and two decimal places
+  const formattedBRL = brlAmount.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 3,
+  });
+
+  return formattedBRL;
 }
 
 const globalSelectors = {};
 globalSelectors.postCounts = `[role="group"][id*="id__"]:only-child`;
 globalSelectors.articleDate = `[role="article"][aria-labelledby*="id__"][tabindex="-1"] time`;
-globalSelectors.analyticsLink = " a[href*='/analytics']";
+globalSelectors.analyticsLink = " :not(.realBox)>a[href*='/analytics']";
 globalSelectors.viewCount = globalSelectors.postCounts + globalSelectors.analyticsLink;
 
 const innerSelectors = {};
-innerSelectors.dollarSpot = "div div:first-child";
+innerSelectors.realSpot = "div div:first-child";
 innerSelectors.viewSVG = "div div:first-child svg";
 innerSelectors.viewAmount = "div div:last-child span span span";
 innerSelectors.articleViewAmount = "span div:first-child span span span";
@@ -46,17 +51,17 @@ function doWork() {
 
   const articleViewDateSection = document.querySelector(globalSelectors.articleDate);
 
-  if (articleViewDateSection) {
+  if(articleViewDateSection) {
     let rootDateViewsSection = articleViewDateSection.parentElement.parentElement.parentElement;
 
-    if (rootDateViewsSection?.children.length === 1) {
+    if(rootDateViewsSection?.children.length === 1) {
       // we're dealing with the <time> element on a quote retweet
       // do globalSelector query again but with 2nd result
       rootDateViewsSection = document.querySelectorAll(globalSelectors.articleDate)[1].parentElement.parentElement.parentElement;
     }
 
     // if there are more than 4, we already added the paycheck value
-    if (rootDateViewsSection?.children.length < 4) {
+    if(rootDateViewsSection?.children.length < 4) {
 
       // clone 2nd and 3rd child of rootDateViewsSection
       const clonedDateViewSeparator = rootDateViewsSection?.children[1].cloneNode(true);
@@ -68,65 +73,49 @@ function doWork() {
 
       // get view count value from 'clonedDateViewsTwo'
       const viewCountValue = clonedDateView?.querySelector(innerSelectors.articleViewAmount)?.textContent;
-      const dollarAmount = convertToDollars(viewCountValue);
+      const realAmount = convertToBRL(viewCountValue);
 
       // replace textContent in cloned clonedDateViews (now 4th child) with converted view count value
-      clonedDateView.querySelector(innerSelectors.articleViewAmount).textContent = "$" + dollarAmount;
+      clonedDateView.querySelector(innerSelectors.articleViewAmount).textContent = "" + realAmount;
 
       // remove 'views' label
       clonedDateView.querySelector(`span`).children[1].remove()
     }
   }
 
-  viewCounts.map((view) => {
-    // Early escape
-    if (view.classList.contains("replaced")) return;
+  for (const view of viewCounts) {
+    // only add the real box once
+    if (!view.classList.contains("replaced")) {
+      // make sure we don't touch this one again
+      view.classList.add("replaced");
 
-    // Make sure we don't touch this one again
-    view.classList.add("replaced");
+      // get parent and clone to make realBox
+      const parent = view.parentElement;
+      const realBox = parent.cloneNode(true);
+      realBox.classList.add("realBox");
 
-    // get parent and clone to make dollarBox
-    const parent = view.parentElement;
-    const dollarBox = parent.cloneNode(true);
+      // insert realBox after view count
+      parent.parentElement.insertBefore(realBox, parent.nextSibling);
 
-    // insert dollarBox after view count
-    //parent.parentElement.insertBefore(dollarBox, parent.nextSibling);
+     // remove view count icon
+      const oldIcon = realBox.querySelector(innerSelectors.viewSVG);
+      oldIcon?.remove();
 
-    // Remove view count icon
-    const oldIcon = dollarBox.querySelector(innerSelectors.viewSVG);
-    oldIcon?.remove();
+      // swap the svg for a real sign
+      const realSpot = realBox.querySelector(innerSelectors.realSpot)?.firstChild?.firstChild;
+      realSpot.textContent = "";
 
-    // Get the number
-    const viewCount = dollarBox.querySelector(innerSelectors.viewAmount);
-    const originalViewCount = viewCount.textContent; // Store the original view count
-    const dollarAmount = convertToDollars(originalViewCount);
-    viewCount.textContent = dollarAmount;
+      // magic alignment value
+      realSpot.style.marginTop = "-0.6rem";
+    }
 
-    // Swap the svg for a dollar sign
-    const dollarSpot = dollarBox.querySelector(innerSelectors.dollarSpot)?.firstChild
-      ?.firstChild;
-    dollarSpot.textContent = "$";
-
-    // Magic alignment value
-    dollarSpot.style.marginTop = "-0.6rem";
-
-    // Convert to euros
-    const euroAmount = convertToEuros(dollarAmount);
-    const euroBox = dollarBox.cloneNode(true);
-    parent.parentElement.insertBefore(euroBox, dollarBox.nextSibling);
-
-    const euroSpot = euroBox.querySelector(innerSelectors.dollarSpot)?.firstChild?.firstChild;
-
-    // Set the euro symbol
-    euroSpot.textContent = "R$";
-    const decimalPlaces = euroAmount < 0.1 ? 4 : 2;
-
-    // Set the euro amount text
-    const euroCount = euroBox.querySelector(innerSelectors.viewAmount);
-    
-    // Displayed amount
-    euroCount.textContent = euroAmount.toFixed(decimalPlaces);
-  });
+    // get the number of views and calculate & set the real amount
+    const realBox = view.parentElement.nextSibling.firstChild;
+    const viewCount = view.querySelector(innerSelectors.viewAmount)?.textContent;
+    if (viewCount == undefined) continue;
+    const realAmountArea = realBox.querySelector(innerSelectors.viewAmount);
+    realAmountArea.textContent = convertToBRL(viewCount);
+  }
 }
 
 function throttle(func, limit) {
