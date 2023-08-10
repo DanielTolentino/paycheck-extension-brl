@@ -6,7 +6,7 @@ function convertToRawCount(number) {
     return Math.round(base * 1000);
   } else if (number.toLowerCase().match(/m/)) {
     return Math.round(base * 1000000);
-  } else if (number.toLowerCase().match(/\d{1,3}b/i)) {
+  } else if (number.toLowerCase().match(/b/)) {
     return Math.round(base * 1000000000);
   } else {
     return base;
