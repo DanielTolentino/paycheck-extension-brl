@@ -4,9 +4,9 @@ function convertToRawCount(number) {
 
   if (number.toLowerCase().match(/(k|mil)/i)) {
     return Math.round(base * 1000);
-  } else if (number.toLowerCase().match(/m/)) {
+  } else if (number.toLowerCase().match(/\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*mi\b/i)) {
     return Math.round(base * 1000000);
-  } else if (number.toLowerCase().match(/b/)) {
+  } else if (number.toLowerCase().match(/b/i)) {
     return Math.round(base * 1000000000);
   } else {
     return base;
@@ -16,7 +16,7 @@ function convertToRawCount(number) {
 function convertToBRL(number) {
   const rawCount = convertToRawCount(number);
 
-  const processed = rawCount * 0.000026;
+  const processed = rawCount * 0.0000026;
   const exchangeRate = 5; // Replace with the actual exchange rate from USD to BRL
 
   const brlAmount = processed * exchangeRate;
@@ -26,7 +26,7 @@ function convertToBRL(number) {
     style: "currency",
     currency: "BRL",
     minimumFractionDigits: 2,
-    maximumFractionDigits: 3,
+    maximumFractionDigits: 2,
   });
 
   return formattedBRL;
