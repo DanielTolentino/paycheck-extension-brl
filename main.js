@@ -2,7 +2,7 @@ function convertToRawCount(number) {
   const cleaned = number.replace(/[,./\s]/g, ""); // Remover vírgulas, pontos, barras e espaços
   const base = parseFloat(cleaned);
 
-  if (number.toLowerCase().match(/\d{1,3}(k|mil)/i)) {
+  if (number.toLowerCase().match(/(k|mil)/i)) {
     return Math.round(base * 1000);
   } else if (number.toLowerCase().match(/m/)) {
     return Math.round(base * 1000000);
